@@ -1,0 +1,14 @@
+{
+  "name": "local-strategy-research-bridge",
+  "version": "0.4.0",
+  "private": true,
+  "license": "GPL-3.0-only",
+  "scripts": {
+    "build:extension-scripts": "tsc -p tsconfig.extension.json",
+    "build": "npm run build:extension-scripts && node ../scripts/build-extension.cjs"
+  },
+  "devDependencies": {
+    "@types/chrome": "0.0.270",
+    "typescript": "~5.9.3"
+  }
+}

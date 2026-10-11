@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Local Strategy Research Studio · MCP 連線</title>
+  <link rel="stylesheet" href="mcp-options.css">
+</head>
+<body>
+  <main>
+    <span class="eyebrow">TRADINGVIEW ASSISTANT</span>
+    <h1>MCP 本機連線</h1>
+    <p>本地程式透過此橋接套件設定策略、執行回測與下載報告。AI Key 保存在本地研究室。</p>
+    <section class="status"><span id="connection-state">讀取連線狀態…</span><small id="connection-error"></small></section>
+    <form id="connection-form">
+      <label class="import">匯入本機配對檔 <input id="pairing-file" type="file" accept=".json,application/json"></label>
+      <p class="hint">先開啟策略研究室，在「TradingView 連線」下載配對檔，再於此匯入、啟用並儲存。</p>
+      <label>本機位址 <input id="bridge-url" type="text" value="ws://127.0.0.1:17365/bridge" required autocomplete="off"></label>
+      <label>配對金鑰 <input id="bridge-token" type="password" required autocomplete="off"></label>
+      <label class="check"><input id="bridge-enabled" type="checkbox">啟用 MCP 連線</label>
+      <button type="submit">儲存連線設定</button>
+      <p id="save-message" role="status"></p>
+    </form>
+    <p class="hint">配對檔含有本機連線金鑰，請保留在自己的電腦。回測使用你指定的 TradingView 分頁，關閉 popup 後仍會繼續執行。</p>
+  </main>
+  <script src="mcp-options.js" defer></script>
+</body>
+</html>

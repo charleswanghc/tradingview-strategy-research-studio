@@ -1,0 +1,23 @@
+name: Verify public research app
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            extension/package-lock.json
+            desktop/package-lock.json
+      - run: npm run bootstrap
+      - run: npm run build
+      - run: npm test
+      - run: npm run audit:public

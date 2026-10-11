@@ -1,0 +1,20 @@
+Local Strategy Research Studio
+
+This research-only project is distributed under GPL-3.0-only. It was
+separated from TradingView Assistant, maintained at:
+https://github.com/charleswanghc/tradingviewAssistant
+
+TradingView automation work in that project was informed by the
+GPL-3.0 TradingView Assistant Chrome extension by its upstream contributors:
+https://github.com/akumidv/tradingview-assistant-chrome-extension
+The upstream GPL license text is retained in LICENSE. No private strategies,
+account configuration, reports, or original Git history are included.
+
+The desktop release also bundles Electron/Chromium and production npm
+dependencies. Their license files and notices remain in the distributed
+runtime and node_modules. These third-party components retain their own
+licenses. Corresponding application source is available in this public
+repository at the version tag linked from DISTRIBUTION.json.
+
+TradingView is a trademark of its respective owner. This project is
+independent and is not endorsed by TradingView or OpenAI.

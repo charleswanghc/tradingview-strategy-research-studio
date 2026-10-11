@@ -1,0 +1,32 @@
+{
+  "name": "local-strategy-research-service",
+  "version": "0.4.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "build:bridge": "npm --prefix ../extension run build:extension-scripts",
+    "start": "node dist/index.js",
+    "dashboard": "node dist/index.js --dashboard --open",
+    "setup": "node dist/index.js --setup",
+    "test": "npm run build && npm run build:bridge && node --test tests/*.test.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/server": "2.3.1",
+    "csv-parse": "^7.0.3",
+    "fast-xml-parser": "^5.11.2",
+    "fflate": "^0.8.3",
+    "ws": "8.22.0",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/client": "2.3.1",
+    "@types/node": "^24.0.0",
+    "@types/ws": "^8.18.0",
+    "typescript": "~5.9.3"
+  },
+  "license": "GPL-3.0-only"
+}

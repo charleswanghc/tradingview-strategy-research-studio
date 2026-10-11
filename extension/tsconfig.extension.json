@@ -1,0 +1,23 @@
+{
+    "compilerOptions": {
+        "outDir": "./.extension-build",
+        "module": "es2020",
+        "target": "es2020",
+        "types": [
+            "chrome"
+        ],
+        "lib": [
+            "dom",
+            "es2020"
+        ],
+        "experimentalDecorators": true,
+        "skipLibCheck": true,
+        "moduleResolution": "node"
+    },
+    "files": [
+        "src/background.ts",
+        "src/content.ts",
+        "src/research-content.ts",
+        "src/mcp-options.ts"
+    ]
+}

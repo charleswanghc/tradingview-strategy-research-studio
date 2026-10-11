@@ -1,0 +1,19 @@
+{
+  "name": "local-strategy-research-studio",
+  "version": "0.4.0",
+  "private": true,
+  "license": "GPL-3.0-only",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "bootstrap": "node scripts/bootstrap.cjs",
+    "build": "node scripts/build.cjs",
+    "test": "npm --prefix backend test",
+    "start": "node scripts/start-research.cjs",
+    "desktop": "npm --prefix desktop start",
+    "package:windows": "node scripts/package-desktop.cjs",
+    "audit:public": "node scripts/audit-public.cjs",
+    "verify:release": "node scripts/verify-release.cjs"
+  }
+}

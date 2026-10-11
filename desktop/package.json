@@ -1,0 +1,15 @@
+{
+  "name": "local-strategy-research-desktop",
+  "productName": "Local Strategy Research Studio",
+  "version": "0.4.0",
+  "private": true,
+  "license": "GPL-3.0-only",
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "electron": "44.7.0",
+    "@electron/packager": "20.3.0"
+  }
+}

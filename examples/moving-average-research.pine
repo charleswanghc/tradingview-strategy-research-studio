@@ -1,0 +1,11 @@
+//@version=6
+// Public workflow example, newly authored for this repository.
+// This is a demonstration of inputs and order flow, not a recommended strategy.
+strategy("Moving Average Research Example", overlay=true, initial_capital=100000, currency=currency.USD, default_qty_type=strategy.fixed, default_qty_value=1, commission_type=strategy.commission.cash_per_contract, commission_value=0, slippage=0, margin_long=0, margin_short=0, pyramiding=0)
+length = input.int(20, "Length", minval=1)
+average = ta.sma(close, length)
+plot(average)
+if ta.crossover(close, average)
+    strategy.entry("Long", strategy.long)
+if ta.crossunder(close, average)
+    strategy.close("Long")

@@ -1,0 +1,16 @@
+:root { font-family: system-ui, sans-serif; color: #e5edf8; background: #0e1523; color-scheme: dark; }
+body { margin: 0; padding: 40px 20px; }
+main { max-width: 620px; margin: auto; }
+.eyebrow { color: #85c8ff; font-size: 12px; letter-spacing: 2px; }
+h1 { font-size: 30px; margin: 14px 0; }
+p { line-height: 1.7; color: #b7c4d8; }
+form { padding: 24px; border: 1px solid #324158; border-radius: 16px; background: #182236; }
+label { display: block; margin: 18px 0; }
+input[type=text], input[type=password] { display: block; box-sizing: border-box; width: 100%; margin-top: 8px; padding: 12px; border: 1px solid #536580; border-radius: 8px; background: #0e1523; }
+input[type=file] { display: block; margin-top: 10px; max-width: 100%; }
+.check { display: flex; gap: 10px; align-items: center; }
+button { border: 0; padding: 12px 20px; background: #87caff; color: #11243b; border-radius: 8px; font: inherit; font-weight: 600; cursor: pointer; }
+.status { margin: 24px 0; padding: 16px; background: #192b40; border-radius: 10px; }
+.status small { display: block; margin-top: 8px; color: #c5d2e4; }
+.hint { font-size: 13px; }
+#save-message { margin-bottom: 0; }
