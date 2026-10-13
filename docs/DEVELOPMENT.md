@@ -20,6 +20,18 @@ returns structured proposals with no browser tools. Each source version and run
 has separate saved artifacts. Disconnected or stopped sessions are retained for
 inspection, not automatically replayed.
 
+The dashboard's conversation source mode accepts pasted text or a public ChatGPT
+share URL. `dashboard/conversation.ts` validates destinations, bounds HTTP reads,
+and decodes JSON/React Router loader data without evaluating page scripts. The
+controller persists the transcript, requests a structured research brief and Pine
+baseline, then runs the existing bounded report-verification loop. Subsequent AI
+proposals receive prior analysis and verified metrics; automatically suggested
+parameter grids are validated against the remaining per-version test allowance.
+Manually supplied grids remain fixed. Private/login-only URLs and unsupported
+page formats require pasted text. URL extraction and AI handoffs have fixture
+coverage; live shared-page access and paid TradingView/API behavior still require
+account-specific acceptance testing.
+
 ## Build and test
 
 ```powershell

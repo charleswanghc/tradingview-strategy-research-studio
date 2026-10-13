@@ -11,7 +11,7 @@
 1. 前往 [Releases](https://github.com/charleswanghc/tradingview-strategy-research-studio/releases/latest)，下載 `local-strategy-research-studio-*-windows-x64.zip`。
 2. **完整解壓縮**，雙擊 `LocalStrategyResearchStudio.exe`。免安裝版已包含執行環境，不必先裝 Node.js。
 3. 依 [首次設定指南](docs/QUICKSTART.md) 選擇工作位置、設定 AI、載入 Chrome 橋接套件並配對。
-4. 放入文字策略或填寫新策略需求，設定商品、日期、成本、候選參數與版本／測試上限，按「開始研究」。
+4. 貼上 ChatGPT 對話文字或公開分享網址，也可放入文字策略或填寫新策略需求。設定商品、日期、成本與版本／測試上限，按「接續對話並開始研究」。
 
 Chrome 橋接套件位於解壓縮目錄的 `TradingViewBridge`。首次使用需在 `chrome://extensions` 開啟開發人員模式，選「載入未封裝項目」。此版本尚未上架 Chrome Web Store。免安裝程式尚未申請程式碼簽章。
 
@@ -19,7 +19,9 @@ Chrome 橋接套件位於解壓縮目錄的 `TradingViewBridge`。首次使用�
 
 ```mermaid
 flowchart LR
-  A[本地策略或使用者需求] --> B[AI 翻寫或撰寫 Pine]
+  A[ChatGPT 對話或分享網址] --> I[整理規則 假設 與待測問題]
+  I --> B[AI 接續或撰寫 Pine]
+  J[本地策略或使用者需求] --> B
   B --> C[程式保存策略版本]
   C --> D[自己的 TradingView 回測每組參數]
   D --> E[下載 CSV 與 XLSX 到本地]
@@ -31,6 +33,10 @@ flowchart LR
 
 現有 Pine 可以停用 AI 分析，只執行參數回測。數值、布林與選項參數皆可列候選值。同一版策略會先跑完全部組合，再分析並提出下一版；測試總數與版本數由使用者限制。
 
+「從 ChatGPT 對話接續研究」會保存原始對話，整理最新策略、交易規則、未驗證假設與待測問題，再自動進入回測、核對、分析與修訂循環。後續模型會收到研究摘要、歷次分析與已核對績效；候選參數留空時，由 AI 在剩餘測試上限內安排每輪組合，手動指定的組合則保持固定。介面顯示研究摘要、下一步與停止原因。
+
+網址欄位支援 `https://chatgpt.com/share/…` 公開分享連結，可先讀取預覽，也可貼網址後直接開始。需要登入的私人 `/c/` 網址、已失效連結或無法解析的頁面會提示改貼文字。頁面格式或網站存取限制可能影響讀取；不讀取 ChatGPT 登入資訊。對話文字上限為 120,000 字元。
+
 輸出保存在使用者選定位置：`strategies` 放來源、`versions` 放每版 Pine、`runs` 放原始報告與測試記錄、`analysis` 放比較及 AI 分析。每個工作目錄會建立忽略規則，避免一般 Git 操作意外提交策略。
 
 ## 帳號與資料
@@ -38,7 +44,7 @@ flowchart LR
 - TradingView 登入由使用者在 Chrome 完成；本程式不索取密碼、Cookie 或帳號權杖。深度回測及歷史資料須由使用者帳號提供。
 - 目前 AI 供應商支援 OpenAI。API 用量計入使用者自己的 API 帳戶；ChatGPT 訂閱與 API 用量分開。
 - Windows 使用目前登入使用者的 DPAPI 加密 AI Key，保存在本機應用程式資料目錄。公開庫和下載包不附任何 Key、登入狀態、配對金鑰、私人策略或回測結果。
-- 使用 AI 前需勾選同意。策略及整理後的回測摘要會傳給所選模型；策略也會提交到使用者自己的 TradingView 帳號編譯與回測。完整資料流與保存範圍見 [隱私說明](PRIVACY.md)。
+- 使用 AI 前需勾選同意。本次對話、策略及整理後的回測摘要會傳給所選模型；策略也會提交到使用者自己的 TradingView 帳號編譯與回測。完整資料流與保存範圍見 [隱私說明](PRIVACY.md)。
 
 ## 支援範圍
 

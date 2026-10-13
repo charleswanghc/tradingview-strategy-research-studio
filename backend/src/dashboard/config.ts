@@ -12,7 +12,9 @@ export type TestSettings = z.infer<typeof settingsSchema>;
 export const planSchema = z.object({
   tabId: z.number().int().positive(),
   sourceFile: z.string().max(250).default(''),
-  sourceMode: z.enum(['pine', 'translate', 'generate']),
+  sourceMode: z.enum(['pine', 'translate', 'generate', 'conversation']),
+  conversationText: z.string().max(120000).default(''),
+  conversationUrl: z.string().max(2000).default(''),
   requirements: z.string().max(12000).default(''),
   title: z.string().min(1).max(120).default('Research Strategy'),
   period: periodSchema, settings: settingsSchema,
@@ -29,8 +31,10 @@ export const planSchema = z.object({
   parameters: z.record(z.string().min(1).max(200), z.array(z.union([z.number().finite(), z.boolean(), z.string().max(300)])).min(1).max(100)).default({})
 }).superRefine((p, c) => {
   if (Object.keys(p.parameters).length > 20) c.addIssue({code:'custom', message:'最多 20 個參數。'});
-  if (p.sourceMode !== 'generate' && !p.sourceFile) c.addIssue({code:'custom', message:'請選擇策略來源檔案。'});
+  if (['pine','translate'].includes(p.sourceMode) && !p.sourceFile) c.addIssue({code:'custom', message:'請選擇策略來源檔案。'});
   if (p.sourceMode === 'generate' && !p.requirements.trim()) c.addIssue({code:'custom', message:'請填寫新策略需求。'});
+  if (p.sourceMode === 'conversation' && !p.conversationText.trim() && !p.conversationUrl.trim()) c.addIssue({code:'custom', message:'請貼上 ChatGPT 對話文字或分享網址。'});
+  if (p.sourceMode === 'conversation' && !p.analyze) c.addIssue({code:'custom', message:'接續對話需要啟用 AI 分析與後續修訂。'});
   if ((p.analyze || p.sourceMode !== 'pine') && !p.aiConsent) c.addIssue({code:'custom', message:'請確認同意將本次策略與回測摘要交給 OpenAI API 處理。'});
 });
 export type Plan = z.infer<typeof planSchema>;

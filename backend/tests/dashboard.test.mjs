@@ -85,8 +85,70 @@ async function loopFixture(t){
   const handler=bridgeModule.createCommandHandler(fixture.api),bridge={status:()=>({connected:true}),request:(command,args)=>handler(command,args)};
   let calls=0;const ai={propose:async()=>({proposal:{analysis:'比較整批參數',rationale:'調整訊號',source:source+'// next version\n',decision:++calls===1?'continue':'finish'},usage:{input_tokens:1}})};
   const controller=new Controller(workspace,bridge,ai,analyzeReport,10);
-  return {controller,fixture,workspace,directory,calls:()=>calls};
+  return {controller,fixture,workspace,directory,bridge,calls:()=>calls};
 }
+
+test('conversation handoff automatically tests, revises candidates and carries evidence into the next round',async t=>{
+  const f=await loopFixture(t),inputs=[];
+  const ai={propose:async input=>{
+    inputs.push(input);
+    if(input.task==='continue_conversation')return {proposal:{analysis:'先測基準',rationale:'沿用最新策略',source,decision:'continue',researchBrief:'規則：日盤逆勢。假設：星期一有優勢，尚未驗證。',nextStep:'測 Length 2',parameterCandidates:[{name:'Length',values:[2]}]},usage:{}};
+    return {proposal:{analysis:`第 ${input.version} 版的已驗證分析`,rationale:'比較單一因子',source,decision:input.version===1?'continue':'finish',nextStep:input.version===1?'測 Length 4':'研究完成',parameterCandidates:input.version===1?[{name:'Length',values:[4]}]:[]},usage:{}};
+  }};
+  const controller=new Controller(f.workspace,f.bridge,ai,analyzeReport,10);
+  const text='使用者：測試日盤逆勢\nChatGPT：這是第一版 Pine\n'+source;
+  await controller.start({...plan(),sourceMode:'conversation',sourceFile:'',parameters:{},conversationText:text,maxTests:2});
+  await until(()=>!controller.busy,10000);
+  const r=controller.record;assert.equal(r.status,'completed',r.error);
+  assert.deepEqual(r.tests.map(t=>t.parameters.Length),[2,4]);assert.equal(r.analyses.length,2);
+  assert.equal(await readFile(r.conversation.path,'utf8'),text);assert.equal(r.plan.conversationText,'');
+  assert.equal(inputs[0].task,'continue_conversation');assert.equal(inputs[0].conversation,text);assert.equal(inputs[0].symbol,'COMEX:GC1!');
+  assert.equal(inputs[0].maxBatchTests,1);assert.equal(inputs[1].results[0].metrics.netProfit,20);
+  assert.match(inputs[2].previous[0].analysis,/已驗證分析/);assert.equal(inputs[2].researchHistory[0].metrics.netProfit,20);
+  assert.match(inputs[2].researchBrief,/尚未驗證/);assert.equal(inputs[2].maxBatchTests,0);assert.equal(r.best.score,40);
+});
+
+test('URL-only handoff imports the transcript and reaches the bounded backtest loop',async t=>{
+  const f=await loopFixture(t),url='https://chatgpt.com/share/00000000-0000-0000-0000-000000000001';let imported;
+  const ai={propose:async input=>({proposal:{analysis:'接續對話',rationale:'基準測試',source,decision:input.task==='continue_conversation'?'continue':'finish'},usage:{}})};
+  const importer=async(input,signal)=>{imported={input,signal};return {text:'使用者：以最新 Pine 策略繼續研究',url,title:'日盤研究',messages:1};};
+  const controller=new Controller(f.workspace,f.bridge,ai,analyzeReport,10,importer);
+  await controller.start({...plan(),sourceMode:'conversation',sourceFile:'',conversationUrl:url,parameters:{Length:[2]},maxRounds:1,maxTests:1});
+  await until(()=>!controller.busy,10000);
+  assert.equal(controller.record.status,'completed',controller.record.error);assert.equal(controller.record.tests.length,1);
+  assert.equal(imported.input.conversationUrl,url);assert.equal(imported.signal.aborted,false);assert.equal(controller.record.conversation.url,url);
+});
+
+test('conversation rejects excess AI candidates before any backtest and preserves the handoff artifacts',async t=>{
+  const f=await loopFixture(t);
+  const ai={propose:async()=>({proposal:{analysis:'接續研究',rationale:'候選',source,decision:'continue',parameterCandidates:[{name:'Length',values:[1,2,3]}]},usage:{}})};
+  const controller=new Controller(f.workspace,f.bridge,ai,analyzeReport,10);
+  await controller.start({...plan(),sourceMode:'conversation',sourceFile:'',conversationText:'測試日盤',parameters:{},maxTests:2});
+  await until(()=>!controller.busy);
+  assert.equal(controller.record.status,'failed');assert.match(controller.record.error,/超過最大測試數/);
+  assert.equal(controller.record.tests.length,0);assert.ok(await readFile(controller.record.conversation.path,'utf8'));
+});
+
+test('manual candidates remain authoritative and unavailable URLs stop before AI',async t=>{
+  const f=await loopFixture(t);let calls=0;
+  const ai={propose:async input=>{calls++;assert.equal(input.allowParameterChanges,false);return {proposal:{analysis:'分析',rationale:'測試',source,decision:'continue',parameterCandidates:[{name:'Length',values:[99]}]},usage:{}};}};
+  const controller=new Controller(f.workspace,f.bridge,ai,analyzeReport,10);
+  await controller.start({...plan(),sourceMode:'conversation',sourceFile:'',conversationText:'逆勢研究',parameters:{Length:[2]},maxRounds:1,maxTests:1});
+  await until(()=>!controller.busy);assert.equal(controller.record.status,'completed',controller.record.error);assert.equal(controller.record.tests[0].parameters.Length,2);
+  const imported=new Controller(f.workspace,f.bridge,ai,analyzeReport,10,async()=>{throw new Error('分享網址已失效');});
+  await imported.start({...plan(),sourceMode:'conversation',sourceFile:'',conversationUrl:'https://chatgpt.com/share/00000000-0000-0000-0000-000000000001'});
+  await until(()=>!imported.busy);assert.equal(imported.record.status,'failed');assert.match(imported.record.error,/已失效/);assert.equal(calls,2);
+});
+
+test('conversation requires content, consent and analysis and rejects private URLs before chart writes',async t=>{
+  assert.throws(()=>planSchema.parse({...plan(),sourceMode:'conversation',sourceFile:''}),/對話文字或分享網址/);
+  assert.throws(()=>planSchema.parse({...plan(),sourceMode:'conversation',conversationText:'策略',analyze:false}),/啟用 AI/);
+  assert.throws(()=>planSchema.parse({...plan(),sourceMode:'conversation',conversationText:'策略',aiConsent:false}),/同意/);
+  const f=await loopFixture(t);let writes=0;
+  const controller=new Controller(f.workspace,{status:()=>({connected:true}),request:async()=>{writes++;return {};}},{propose:async()=>{throw new Error('no AI');}});
+  await assert.rejects(()=>controller.start({...plan(),sourceMode:'conversation',conversationUrl:'https://chatgpt.com/c/private'}),/私人/);
+  assert.equal(writes,0);
+});
 test('controller runs two parameter batches through real content runner, preserves versions and calls AI once per batch',async t=>{
   const f=await loopFixture(t);await f.controller.start(plan());await until(()=>!f.controller.busy,10000);
   const r=f.controller.record;assert.equal(r.status,'completed',r.error);assert.equal(r.tests.length,4);assert.equal(f.calls(),2);

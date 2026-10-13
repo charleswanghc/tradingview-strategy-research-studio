@@ -4,7 +4,7 @@
 <body>
 <header><a class="brand" href="#"><span class="logo">T</span><div>Local Strategy Research Studio<small>本地策略研究室</small></div></a><span id="connection" class="pill">讀取連線狀態</span></header>
 <main>
-  <div class="intro"><div><p class="eyebrow">FROM STRATEGY TO EVIDENCE</p><h1>把想法變成可比較的回測。</h1><p>程式執行測試與保存報告，AI 專注策略撰寫和結果分析。</p></div><a class="button secondary" href="https://www.tradingview.com/chart/" target="_blank" rel="noreferrer">開啟 TradingView ↗</a></div>
+  <div class="intro"><div><p class="eyebrow">FROM CONVERSATION TO EVIDENCE</p><h1>貼上對話，接著完成策略研究。</h1><p>從 ChatGPT 討論接續策略，自動回測、分析、修改並推進下一輪。</p></div><a class="button secondary" href="https://www.tradingview.com/chart/" target="_blank" rel="noreferrer">開啟 TradingView ↗</a></div>
   <p id="notice" role="status" hidden></p>
   <div class="grid">
     <section class="card"><div class="section-title"><span>01</span><h2>工作資料夾</h2></div><p class="muted">選擇位置後，程式建立策略、版本、回測與分析資料夾。</p>
@@ -20,30 +20,38 @@
     </section>
     <section class="card"><div class="section-title"><span>03</span><h2>TradingView 連線</h2></div><ol class="muted"><li>在 Chrome 登入自己的 TradingView 帳號。</li><li>載入或更新 Local Strategy Research Studio 擴充套件。</li><li>下載配對檔，在擴充套件「選項」匯入並啟用連線。</li></ol>
       <button id="pairing" class="secondary">下載本機配對檔</button><p class="muted">配對檔含本機連線金鑰，請留在自己的電腦。深度回測需要帳號方案支援。</p>
-      <div class="two"><label>商品<input id="symbol" value="COMEX:GC1!"></label><label>週期<select id="interval"><option value="D">日 K</option><option value="W">週 K</option><option value="60">60 分鐘</option><option value="15">15 分鐘</option></select></label></div>
+      <div class="two"><label>商品<input id="symbol" value="COMEX:GC1!"></label><label>週期<select id="interval"><option value="D">日 K</option><option value="W">週 K</option><option value="60">60 分鐘</option><option value="15">15 分鐘</option><option value="5">5 分鐘</option><option value="1">1 分鐘</option></select></label></div>
       <div class="actions"><button id="new-chart">開啟專用圖表</button><button id="refresh-tabs" class="secondary">重新整理分頁</button></div>
       <label>目標圖表<select id="tab"><option value="">先連線並開啟圖表</option></select></label><button id="configure-chart" class="secondary">確認圖表並設為 UTC</button><p id="chart-state" class="muted">使用標準 K 線；此版自動流程支援 UTC 時區。</p>
     </section>
     <section class="card"><div class="section-title"><span>04</span><h2>策略來源</h2></div>
-      <label>工作方式<select id="source-mode"><option value="translate">翻寫 MultiCharts 文字策略</option><option value="pine">使用現有 Pine 策略</option><option value="generate">AI 依需求撰寫新策略</option></select></label>
-      <div id="source-fields"><label>策略檔案<div class="inline"><select id="source-file"><option value="">請先建立資料夾並放入策略</option></select><button id="refresh-files" class="secondary">刷新</button></div></label>
+      <label>工作方式<select id="source-mode"><option value="conversation">從 ChatGPT 對話接續研究</option><option value="translate">翻寫 MultiCharts 文字策略</option><option value="pine">使用現有 Pine 策略</option><option value="generate">AI 依需求撰寫新策略</option></select></label>
+      <div id="conversation-fields">
+        <label>ChatGPT 對話分享網址<div class="inline"><input id="conversation-url" type="url" maxlength="2000" placeholder="https://chatgpt.com/share/…"><button id="read-conversation" class="secondary">讀取對話</button></div></label>
+        <p class="muted">貼上分享網址後可直接開始研究，或先按「讀取對話」檢查內容。私人 /c/ 網址需要登入，請先在 ChatGPT 按「分享」，或改貼文字。</p>
+        <label>或直接貼上對話文字<textarea id="conversation-text" rows="7" maxlength="120000" placeholder="貼上你與 ChatGPT 討論策略的完整內容，可包含 Pine 程式與待測問題。"></textarea></label>
+        <p id="conversation-state" class="muted">保留最新策略、交易規則與研究問題；有文字時以文字為準。最多 120,000 字元。</p>
+        <p class="conversation-flow">整理對話 → 產生策略 → 回測與核對 → 分析與修改 → 下一輪</p>
+      </div>
+      <div id="source-fields" hidden><label>策略檔案<div class="inline"><select id="source-file"><option value="">請先建立資料夾並放入策略</option></select><button id="refresh-files" class="secondary">刷新</button></div></label>
       <label class="file-label">或匯入 .txt／.pine<input id="import-file" type="file" accept=".txt,.pine"></label><p class="muted">也可以直接把檔案放進 strategies 資料夾。ELD／PLA 請先匯出文字。</p></div>
-      <label>策略名稱<input id="title" value="Research Strategy"></label><label>新策略需求／研究目標<textarea id="requirements" rows="4" placeholder="描述進出場規則、風險限制與希望比較的問題。"></textarea></label>
+      <label>策略名稱<input id="title" value="Research Strategy"></label><label>補充需求／研究目標<textarea id="requirements" rows="4" maxlength="12000" placeholder="可留空沿用對話；也可補充這次優先測試的問題。平台測試設定與補充需求優先。"></textarea></label>
     </section>
     <section class="card wide"><div class="section-title"><span>05</span><h2>測試條件與參數組合</h2></div>
       <div class="four"><label>開始日期<input id="start" type="date" value="2020-01-01"></label><label>結束日期<input id="end" type="date" ></label><label>初始資金 USD<input id="capital" type="number" min="1" value="100000"></label><label>每次口數<input id="quantity" type="number" min="1" step="1" value="1"></label><label>每合約每邊手續費 USD<input id="commission" type="number" min="0" step="0.01" value="0"></label><label>滑價 ticks<input id="slippage" type="number" min="0" step="1" value="0"></label><label>最多策略版本<input id="rounds" type="number" min="1" max="20" value="3"></label><label>總測試上限<input id="max-tests" type="number" min="1" max="1000" value="50"></label><label>回測逾時（秒）<input id="timeout" type="number" min="30" max="600" value="180"></label><label>比較目標<select id="objective"><option value="netProfit">淨利較高</option><option value="profitFactor">Profit Factor 較高</option><option value="maxDrawdown">最大回撤較低</option></select></label></div>
       <div class="actions"><button id="add-parameter" class="secondary">＋ 新增測試參數</button><button id="detect-parameters" class="secondary">讀取圖表目前策略的參數</button></div>
-      <div id="parameter-rows"></div><p class="muted">候選值以逗號分隔，例如 10, 15, 20。選項名稱必須與策略輸入標題一致；不新增參數時使用原始設定。</p>
+      <div id="parameter-rows"></div><p id="parameter-help" class="muted">接續對話時可留空，由 AI 依研究問題提出每輪候選參數。手動指定後，各輪使用你指定的組合。候選值以逗號分隔，名稱須與策略輸入標題一致。</p>
       <details><summary>進階參數設定（JSON）</summary><label>參數組合<textarea id="parameters" rows="3" spellcheck="false" placeholder='例如：{"ATR Length":[10,20,30],"Enable Trailing":[true,false]}'>{}</textarea></label></details><p id="combination-count" class="muted">1 組參數，最多 3 次回測。</p>
       <label class="check"><input id="analyze" type="checkbox" checked>整批回測完成後，由 AI 分析並依輪數上限提出下一版</label>
-      <label class="check"><input id="ai-consent" type="checkbox">我同意本次研究將策略與回測摘要交給所選 OpenAI API 模型處理</label>
+      <label class="check"><input id="ai-consent" type="checkbox">我同意本次研究將對話內容、策略與回測摘要交給所選 OpenAI API 模型處理</label>
       <p class="muted">固定使用 USD、固定口數、下一個 tick 撮合、每根 K 線結束計算，不啟用 Bar Magnifier。未模擬保證金限制。分批出場及加碼策略需另行適配。CSV／XLSX 無法核對時會停止。</p>
-      <div class="run-actions"><button id="start-run" class="primary">開始研究 →</button><button id="stop-run" class="danger" disabled>停止研究</button><span id="readiness" class="muted"></span></div>
+      <div class="run-actions"><button id="start-run" class="primary">接續對話並開始研究 →</button><button id="stop-run" class="danger" disabled>停止研究</button><span id="readiness" class="muted"></span></div>
     </section>
     <section class="card wide"><div class="section-title"><span>06</span><h2>執行與結果</h2></div><p id="progress">尚未開始研究</p><p id="run-path" class="path"></p><p id="run-error" class="error"></p>
       <div class="table-wrap"><table><thead><tr><th>版本／組合</th><th>參數</th><th>淨利 USD</th><th>回撤 USD</th><th>勝率</th><th>PF</th><th>原始報告</th></tr></thead><tbody id="results"><tr><td colspan="7" class="muted">完成的測試會逐組出現在這裡。</td></tr></tbody></table></div>
+      <details id="research-context" hidden open><summary>這次接續的研究</summary><p id="research-brief"></p><p id="next-step"></p><div id="conversation-artifact"></div></details>
       <div id="analyses"></div><p id="best" class="muted"></p><details><summary>研究紀錄與路徑</summary><div id="history"></div></details>
     </section>
   </div>
-  <footer>策略與報告保存在選定資料夾。TradingView 在自己的帳號編譯與回測；AI API 僅接收策略及數據摘要。研究功能仍需實際帳號驗收，歷史績效不代表未來結果。</footer>
+  <footer>對話、策略與報告保存在選定資料夾。TradingView 在自己的帳號編譯與回測；AI API 接收本次對話、策略及數據摘要。研究功能仍需實際帳號驗收，歷史績效不代表未來結果。</footer>
 </main><script src="app.js"></script></body></html>

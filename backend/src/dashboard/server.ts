@@ -10,11 +10,12 @@ import { Workspace, pickDirectory, folders } from './workspace.js';
 import { Credentials } from './credentials.js';
 import { AiClient } from './ai.js';
 import { Controller } from './controller.js';
+import { loadConversation } from './conversation.js';
 
 async function body(request:IncomingMessage) {
   if(request.headers['content-type']!=='application/json')throw new Error('請使用 JSON 請求。');
   let length=0;const chunks:Buffer[]=[];
-  for await(const chunk of request){length+=chunk.length;if(length>300000)throw new Error('請求超過 300 KB。');chunks.push(chunk);}
+  for await(const chunk of request){length+=chunk.length;if(length>1024*1024)throw new Error('請求超過 1 MiB。');chunks.push(chunk);}
   return JSON.parse(Buffer.concat(chunks).toString('utf8'));
 }
 export async function startDashboard(bridge:CommandBridge,dataDirectory:string,port:number,pairing:{version:number;url:string;token:string}) {
@@ -43,7 +44,7 @@ export async function startDashboard(bridge:CommandBridge,dataDirectory:string,p
     const send=(data:unknown)=>response.end(JSON.stringify(data));
     if(request.method==='GET'){
       if(url.pathname==='/api/state'){
-        const run=controller.record ? {...controller.record,tests:controller.record.tests.map(t=>({...t,report:{verified:t.report.verified,metrics:t.report.metrics}}))} : null;
+        const run=controller.record ? {...controller.record,plan:{...controller.record.plan,conversationText:''},tests:controller.record.tests.map(t=>({...t,report:{verified:t.report.verified,metrics:t.report.metrics}}))} : null;
         send({bridge:bridge.status(),workspace:workspace.paths(),ai:credentials.status(),run,busy:controller.busy});return;
       }
       if(url.pathname==='/api/files'){send({files:await workspace.files()});return;}
@@ -72,6 +73,10 @@ export async function startDashboard(bridge:CommandBridge,dataDirectory:string,p
       if(url.pathname==='/api/models'){send({models:await ai.models()});return;}
       if(url.pathname==='/api/import'){
         const v=z.object({name:z.string(),source:z.string()}).parse(input);send({files:await workspace.import(v.name,v.source)});return;
+      }
+      if(url.pathname==='/api/conversation'){
+        const v=z.object({conversationUrl:z.string().min(1).max(2000)}).parse(input);
+        send(await loadConversation({...v,conversationText:''}));return;
       }
       if(url.pathname==='/api/chart'){
         const v=z.object({symbol:z.string().min(1).max(100),interval:z.string().min(1).max(20)}).parse(input);send(await bridge.request('prepare_chart',v));return;

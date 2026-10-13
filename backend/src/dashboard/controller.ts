@@ -5,7 +5,8 @@ import type { CommandBridge } from '../contracts/protocol.js';
 import { ResearchStore } from '../research/store.js';
 import { Workspace } from './workspace.js';
 import { planSchema, combinations, type Plan } from './config.js';
-import { AiClient } from './ai.js';
+import { AiClient, proposalSchema, type Proposal } from './ai.js';
+import { loadConversation, shareUrl } from './conversation.js';
 import { preparePine } from './pine.js';
 import { analyzeReport, symbolKey, intervalKey, type Report } from './report.js';
 
@@ -14,7 +15,9 @@ const hash=(v:string)=>createHash('sha256').update(v.replace(/\r\n/g,'\n')).dige
 export interface RunRecord {
   id:string;status:string;phase:string;startedAt:string;updatedAt:string;directory:string;plan:Plan;
   tests:Array<{version:number;combination:number;sessionId:string;sourceHash:string;parameters:Record<string,unknown>;report:Report;artifacts:Record<string,string>}>;
-  analyses:Array<{version:number;path:string;decision:string}>;usage:unknown[];error?:string;
+  analyses:Array<{version:number;path:string;decision:string;analysis?:string;rationale?:string;nextStep?:string}>;usage:unknown[];error?:string;
+  researchBrief?:string;nextStep?:string;stopReason?:string;
+  conversation?:{path:string;url?:string;title?:string;messages?:number;characters:number};
   activeSession?:{id:string;directory:string};best?:{version:number;combination:number;score:number;sourcePath:string;parameters:Record<string,unknown>};
 }
 export class Controller {
@@ -25,7 +28,7 @@ export class Controller {
   private store?:ResearchStore;
   private saving:Promise<void>=Promise.resolve();
   private cancelling?:Promise<void>;
-  constructor(private workspace:Workspace,private bridge:CommandBridge,private ai:AiClient,private parseReport=analyzeReport,private pollMs=1000) {}
+  constructor(private workspace:Workspace,private bridge:CommandBridge,private ai:AiClient,private parseReport=analyzeReport,private pollMs=1000,private importConversation=loadConversation) {}
   get busy(){return this.preparing || this.running || !!this.record?.activeSession;}
   private check(){if(this.abort?.signal.aborted)throw new Error('使用者停止研究。');}
   private save(){
@@ -66,7 +69,8 @@ export class Controller {
     if(values.length*plan.maxRounds>plan.maxTests)throw new Error(`最多 ${values.length*plan.maxRounds} 次回測，超過總測試上限 ${plan.maxTests}。`);
     if(!this.workspace.root)throw new Error('請先建立工作資料夾。');
     if(!this.bridge.status().connected)throw new Error('Chrome 擴充套件尚未配對連線。');
-    const source=plan.sourceMode==='generate'?'':await this.workspace.source(plan.sourceFile);
+    if(plan.sourceMode==='conversation' && !plan.conversationText.trim())shareUrl(plan.conversationUrl);
+    const source=['generate','conversation'].includes(plan.sourceMode)?'':await this.workspace.source(plan.sourceFile);
     this.check();
     if(plan.sourceMode==='pine')preparePine(source,plan.title,plan.settings);
     await this.bridge.request('configure_chart',{tabId:plan.tabId,timezone:plan.timezone});
@@ -91,15 +95,42 @@ export class Controller {
   private async execute(initial:string,values:Record<string,number|boolean|string>[]){
     const r=this.record!,p=r.plan;
     let source=initial;
-    if(p.sourceMode!=='pine'){
+    const automaticParameters=p.sourceMode==='conversation' && Object.keys(p.parameters).length===0;
+    let candidates=p.parameters;
+    const maxBatchTests=(version:number)=>Math.floor((p.maxTests-r.tests.length)/(p.maxRounds-version+1));
+    const updateCandidates=(proposal:Proposal,version:number)=>{
+      if(!automaticParameters)return;
+      const next=Object.fromEntries(proposal.parameterCandidates.map(c=>[c.name,c.values]));
+      values=combinations(next,maxBatchTests(version));candidates=next;
+    };
+    const platform={requirements:p.requirements,title:p.title,settings:p.settings,period:p.period,symbol:p.symbol,interval:p.interval,timezone:p.timezone,
+      execution:{processOrdersOnClose:false,calcOnEveryTick:false,barMagnifier:false,pyramiding:0},objective:p.objective,
+      allowParameterChanges:automaticParameters,maxRounds:p.maxRounds};
+    if(p.sourceMode==='conversation'){
+      await this.phase(p.conversationText.trim()?'整理貼上的 ChatGPT 對話':'讀取 ChatGPT 分享網址');
+      const conversation=await this.importConversation(p,this.abort!.signal);this.check();
+      const path=join(r.directory,'conversation.txt');await writeFile(path,conversation.text,{flag:'wx'});
+      r.conversation={path,url:conversation.url,title:conversation.title,messages:conversation.messages,characters:conversation.text.length};
+      p.conversationText='';await this.save();
+      await this.phase('AI 接續對話：整理策略、研究問題與第一輪測試');
+      const response=await this.ai.propose({...platform,task:'continue_conversation',conversation:conversation.text,parameters:p.parameters,maxBatchTests:maxBatchTests(1)},this.abort!.signal);
+      this.check();r.usage.push(response.usage);
+      const proposal=proposalSchema.parse(response.proposal);
+      await writeFile(join(r.directory,'initial-proposal.json'),JSON.stringify(proposal,null,2));
+      if(!proposal.source.trim())throw new Error('對話尚未產生可回測策略；請查看 initial-proposal.json 的分析並補充研究目標。');
+      source=proposal.source;r.researchBrief=proposal.researchBrief || proposal.analysis.slice(0,12000);r.nextStep=proposal.nextStep;
+      updateCandidates(proposal,1);await this.save();
+    }
+    else if(p.sourceMode!=='pine'){
       await this.phase(p.sourceMode==='translate'?'AI 翻寫策略':'AI 依需求產生策略');
-      const response=await this.ai.propose({task:p.sourceMode,source:initial,requirements:p.requirements,title:p.title,settings:p.settings,period:p.period,parameters:p.parameters},this.abort!.signal);
+      const response=await this.ai.propose({...platform,task:p.sourceMode,source:initial,parameters:p.parameters,maxBatchTests:maxBatchTests(1)},this.abort!.signal);
       this.check();r.usage.push(response.usage);
       await writeFile(join(r.directory,'initial-proposal.json'),JSON.stringify(response.proposal,null,2));
       if(!response.proposal.source)throw new Error('AI 沒有產生策略；請查看 initial-proposal.json 的說明。');source=response.proposal.source;
     }
     r.status='running';
     for(let version=1;version<=p.maxRounds;version++){
+      if(r.tests.length+values.length>p.maxTests){r.stopReason='已達總測試上限。';break;}
       source=preparePine(source,p.title,p.settings);
       const versionDir=await this.workspace.safePath('versions'), versionPath=join(versionDir,`${r.id}-v${String(version).padStart(3,'0')}.pine`);
       await writeFile(versionPath,source,{flag:'wx'});const sourceHash=hash(source), batch=[];
@@ -110,7 +141,7 @@ export class Controller {
         if(!context||symbolKey(context.symbol)!==symbolKey(p.symbol)||intervalKey(context.interval)!==intervalKey(p.interval))throw new Error('圖表商品／週期與計畫不一致，請重新準備圖表。');
         const dataDirectory=join(r.directory,`v${String(version).padStart(3,'0')}-test${String(combination+1).padStart(4,'0')}`);
         this.store=new ResearchStore(this.bridge,dataDirectory);
-        const created=await this.store.create({tabId:p.tabId,expectedContext:context,period:p.period,goal:p.requirements||'依固定條件比較參數與策略版本',maxRounds:1,timeoutMs:p.timeoutMs,exportXlsx:true,parameters:values[combination],timezone:p.timezone});
+        const created=await this.store.create({tabId:p.tabId,expectedContext:context,period:p.period,goal:(r.researchBrief||p.requirements||'依固定條件比較參數與策略版本').slice(0,5000),maxRounds:1,timeoutMs:p.timeoutMs,exportXlsx:true,parameters:values[combination],timezone:p.timezone});
         const sessionId=(created.session as any).id;r.activeSession={id:sessionId,directory:dataDirectory};await this.save();
         this.check();await this.store.submit({sessionId,source,rationale:`策略版本 ${version}，參數組合 ${combination+1}；版本雜湊 ${sourceHash}`});
         const deadline=Date.now()+p.timeoutMs+360000;let session:any;
@@ -137,22 +168,28 @@ export class Controller {
         await this.save();
       }
       await this.comparison();
-      if(!p.analyze)break;
+      if(!p.analyze){r.stopReason='已完成指定參數回測。';break;}
       await this.phase(`AI 分析第 ${version} 版整批結果`);
-      const response=await this.ai.propose({task:'analyze_and_revise',source,requirements:p.requirements,settings:p.settings,period:p.period,
-        symbol:p.symbol,interval:p.interval,version,maxRounds:p.maxRounds,objective:p.objective,parameters:p.parameters,
+      const response=await this.ai.propose({...platform,task:'analyze_and_revise',source,researchBrief:r.researchBrief||'',
+        version,parameters:candidates,maxBatchTests:version<p.maxRounds?maxBatchTests(version+1):0,
         results:batch.map(t=>({parameters:t.parameters,metrics:t.report.metrics,annual:t.report.annual,examples:t.report.examples,notes:t.report.notes})),
-        previous:r.analyses.map(a=>({version:a.version,decision:a.decision})),instruction:version===p.maxRounds?'已到輪數上限，請分析並 finish；不要要求繼續。':'分析整批參數穩定性；有具體理由才修改策略；沒有合理改進則 finish。'},this.abort!.signal);
+        previous:r.analyses.map(a=>({version:a.version,decision:a.decision,analysis:a.analysis,rationale:a.rationale,nextStep:a.nextStep})),
+        researchHistory:r.tests.filter(t=>t.version!==version).map(t=>({version:t.version,parameters:t.parameters,metrics:t.report.metrics})),best:r.best,
+        instruction:version===p.maxRounds?'已到輪數上限，請分析並 finish；不要要求繼續。':'根據研究問題與歷次證據推進下一輪；有具體理由才修改策略或候選參數；沒有合理改進則 finish。'},this.abort!.signal);
       this.check();r.usage.push(response.usage);
+      const proposal=proposalSchema.parse(response.proposal);
       const dir=await this.workspace.safePath('analysis'),path=join(dir,`${r.id}-v${String(version).padStart(3,'0')}.md`);
-      await writeFile(path,`${response.proposal.analysis}\n\n修改理由：${response.proposal.rationale}\n`,{flag:'wx'});
-      await writeFile(join(r.directory,`proposal-v${version}.json`),JSON.stringify(response.proposal,null,2));
-      r.analyses.push({version,path,decision:response.proposal.decision});await this.save();
-      if(response.proposal.decision==='finish'||version===p.maxRounds)break;
-      if(hash(preparePine(response.proposal.source,p.title,p.settings))===sourceHash)break;
-      source=response.proposal.source;
+      await writeFile(path,`${proposal.analysis}\n\n修改理由：${proposal.rationale}\n\n下一步：${proposal.nextStep}\n`,{flag:'wx'});
+      await writeFile(join(r.directory,`proposal-v${version}.json`),JSON.stringify(proposal,null,2));
+      r.analyses.push({version,path,decision:proposal.decision,analysis:proposal.analysis,rationale:proposal.rationale,nextStep:proposal.nextStep});
+      if(proposal.researchBrief)r.researchBrief=proposal.researchBrief;r.nextStep=proposal.nextStep;await this.save();
+      if(version===p.maxRounds){r.stopReason='已達策略版本上限。';break;}
+      if(proposal.decision==='finish'){r.stopReason='AI 已完成研究或沒有足夠理由繼續。';break;}
+      const previousValues=JSON.stringify(values);updateCandidates(proposal,version+1);
+      if(hash(preparePine(proposal.source,p.title,p.settings))===sourceHash && previousValues===JSON.stringify(values)){r.stopReason='策略與候選參數未變更。';break;}
+      source=proposal.source;
     }
-    this.check();r.status='completed';r.phase='研究完成；最佳候選已保存，圖表保留最後測試組合。';await this.comparison();await this.save();
+    this.check();r.status='completed';r.phase=`研究完成：${r.stopReason||'測試完成。'}最佳候選已保存，圖表保留最後測試組合。`;await this.comparison();await this.save();
   }
   private async comparison(){
     const r=this.record!,dir=await this.workspace.safePath('analysis');
